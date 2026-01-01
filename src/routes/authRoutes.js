@@ -22,7 +22,7 @@ router.get('/google',
 );
 
 router.get('/google/callback', 
-    passport.authenticate('google', { session: false, failureRedirect: 'https://project-frontend-tan.vercel.app/login?error=auth_failed' }), 
+    passport.authenticate('google', { session: false, failureRedirect: 'https://project-frontend-pi-sandy.vercel.app/login?error=auth_failed' }), 
     async (req, res) => {
         try {
             const userRoleLevel = req.user.role?.role_level || 4;
@@ -40,10 +40,10 @@ router.get('/google/callback',
             );
 
             // ส่งกลับไปที่ Frontend พร้อม Token
-            res.redirect(`https://project-frontend-tan.vercel.app/login?token=${token}`);
+            res.redirect(`https://project-frontend-pi-sandy.vercel.app/login?token=${token}`);
         } catch (error) {
             console.error("Google Auth Callback Error:", error);
-            res.redirect('https://project-frontend-tan.vercel.app/login?error=server_error');
+            res.redirect('https://project-frontend-pi-sandy.vercel.app/login?error=server_error');
         }
     }
 );
