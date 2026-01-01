@@ -1,0 +1,210 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// D1: Roles - ข้อมูลบทบาทและสิทธิ์การเข้าถึงพื้นฐาน
+model Roles {
+  role_id     Int                @id @default(autoincrement()) //
+  role_name   String             @unique @db.VarChar(20) //
+  role_level  Int                @unique //
+  users       Users[]
+  permissions Role_Permissions[]
+}
+
+// D2: Users - ข้อมูลสมาชิกและเจ้าหน้าที่ของร้าน
+model Users {
+  user_id    String           @id @default(uuid()) @db.VarChar(36) //
+  email      String           @unique @db.VarChar(100) //
+  password   String           @db.VarChar(60) //
+  first_name String           @db.VarChar(100) //
+  last_name  String           @db.VarChar(100) //
+  role_id    Int //
+  role       Roles            @relation(fields: [role_id], references: [role_id])
+  addresses  Addresses[]
+  orders     Orders[]
+  logs       System_Logs[]
+  inv_logs   Inventory_Logs[]
+  wishlists  Wishlists[]
+}
+
+// D3: Permissions - นิยามสิทธิ์การทำงานเฉพาะด้าน
+model Permissions {
+  permission_id   Int                @id @default(autoincrement()) //
+  permission_name String             @db.VarChar(100) //
+  roles           Role_Permissions[]
+}
+
+// D4: Role_Permissions - ตารางกลางสำหรับเชื่อมบทบาทและสิทธิ์
+model Role_Permissions {
+  role_permissions_id Int         @id @default(autoincrement()) //
+  role_id             Int //
+  permission_id       Int //
+  role                Roles       @relation(fields: [role_id], references: [role_id])
+  permission          Permissions @relation(fields: [permission_id], references: [permission_id])
+}
+
+// D5: System_Logs - บันทึกประวัติกิจกรรมสำคัญบนระบบ
+model System_Logs {
+  log_id         Int      @id @default(autoincrement()) //
+  user_id        String   @db.VarChar(36) //
+  action_details String   @db.VarChar(255) //
+  created_at     DateTime @default(now()) //
+  user           Users    @relation(fields: [user_id], references: [user_id])
+}
+
+// D6: Categories - ประเภทหรือกลุ่มของสินค้า
+model Categories {
+  category_id   Int        @id @default(autoincrement()) //
+  category_name String     @db.VarChar(100) //
+  products      Products[]
+}
+
+// D7: Products - ข้อมูลรายละเอียดสินค้าที่วางขาย
+model Products {
+  product_id     String            @id @default(uuid()) @db.VarChar(36) //
+  product_name   String            @db.VarChar(100) //
+  unit_price     Int //
+  stock_quantity Int //
+  category_id    Int //
+  category       Categories        @relation(fields: [category_id], references: [category_id])
+  images         Product_Images[]
+  orderItems     Order_Items[]
+  inv_logs       Inventory_Logs[]
+  views          Product_Views[]
+  reviews        Product_Reviews[]
+  wishlists      Wishlists[]
+}
+
+// D8: Product_Images - สำหรับเก็บลิงก์รูปภาพประกอบสินค้า
+model Product_Images {
+  image_id   Int      @id @default(autoincrement()) //
+  product_id String   @db.VarChar(36) //
+  image_url  String   @db.Text //
+  is_main    Boolean  @default(false) //
+  product    Products @relation(fields: [product_id], references: [product_id])
+}
+
+// D9: Inventory_Logs - บันทึกประวัติการเพิ่ม-ลดสต็อกโดยเจ้าหน้าที่
+model Inventory_Logs {
+  inv_log_id Int      @id @default(autoincrement()) //
+  product_id String   @db.VarChar(36) //
+  user_id    String   @db.VarChar(36) //
+  change_qty Int //
+  reason     String   @db.VarChar(255) //
+  product    Products @relation(fields: [product_id], references: [product_id])
+  user       Users    @relation(fields: [user_id], references: [user_id])
+}
+
+// D10: Product_Views - สำหรับเก็บสถิติการเข้าชมสินค้า
+model Product_Views {
+  view_id    Int      @id @default(autoincrement()) //
+  product_id String   @db.VarChar(36) //
+  viewed_at  DateTime @default(now()) //
+  product    Products @relation(fields: [product_id], references: [product_id])
+}
+
+// D11: Addresses - ข้อมูลที่อยู่จัดส่งของลูกค้า
+model Addresses {
+  address_id     Int    @id @default(autoincrement())
+  user_id        String @db.VarChar(36)
+  recipient_name String @db.VarChar(100)
+  phone_number   String @db.VarChar(10)
+  address_detail String @db.VarChar(255)
+
+  user   Users    @relation(fields: [user_id], references: [user_id])
+  orders Orders[]
+}
+
+// D12: Orders - แก้ไขเพิ่ม address_id และความสัมพันธ์
+model Orders {
+  order_id        String   @id @db.VarChar(16)
+  user_id         String   @db.VarChar(36)
+  address_id      Int?
+  total_amount    Int
+  status          String   @db.VarChar(20)
+  tracking_number String?  @db.VarChar(20)
+  created_at      DateTime @default(now())
+
+  user    Users      @relation(fields: [user_id], references: [user_id])
+  address Addresses? @relation(fields: [address_id], references: [address_id]) // เชื่อมกับตาราง Addresses (D11)
+
+  items     Order_Items[]
+  shippings Shippings[]
+  payments  Payments[]
+}
+
+// D13: Order_Items - รายการสินค้าแต่ละชนิดในใบสั่งซื้อนั้นๆ
+model Order_Items {
+  item_id        Int      @id @default(autoincrement()) //
+  order_id       String   @db.VarChar(16) //
+  product_id     String   @db.VarChar(36) //
+  quantity       Int //
+  price_at_order Int //
+  order          Orders   @relation(fields: [order_id], references: [order_id])
+  product        Products @relation(fields: [product_id], references: [product_id])
+}
+
+// D14: Shippings - บันทึกข้อมูลการดำเนินการส่งพัสดุ
+model Shippings {
+  shipping_id   Int                @id @default(autoincrement()) //
+  order_id      String             @db.VarChar(16) //
+  shipping_date DateTime //
+  provider_id   Int //
+  order         Orders             @relation(fields: [order_id], references: [order_id])
+  provider      Shipping_Providers @relation(fields: [provider_id], references: [provider_id])
+}
+
+// D15: Shipping_Providers - รายชื่อบริษัทขนส่งที่ร้านใช้บริการ
+model Shipping_Providers {
+  provider_id   Int         @id @default(autoincrement()) //
+  provider_name String      @db.VarChar(100) //
+  shippings     Shippings[]
+}
+
+// D16: Payment_Methods - ช่องทางการชำระเงินที่ร้านเปิดรับ
+model Payment_Methods {
+  method_id      Int     @id @default(autoincrement()) //
+  bank_name      String  @db.VarChar(100) //
+  account_name   String? @db.VarChar(100) //
+  account_number String  @db.VarChar(15) //
+}
+
+// D17: Payments - หลักฐานการแจ้งโอนเงินจากลูกค้า
+model Payments {
+  payment_id  String  @id @default(uuid()) @db.VarChar(36) //
+  order_id    String  @db.VarChar(16) //
+  amount_paid Int //
+  slip_url    String  @db.Text //
+  is_verified Boolean @default(false) //
+  order       Orders  @relation(fields: [order_id], references: [order_id])
+}
+
+// D18: Product_Reviews - ข้อมูลการรีวิวและให้คะแนนสินค้า
+model Product_Reviews {
+  review_id    Int      @id @default(autoincrement()) //
+  product_id   String   @db.VarChar(36) //
+  rating_score Int //
+  comment      String?  @db.VarChar(255) //
+  product      Products @relation(fields: [product_id], references: [product_id])
+}
+
+// D19: Wishlists - รายการสินค้าที่ลูกค้าบันทึกไว้ว่าสนใจ
+model Wishlists {
+  wishlist_id Int      @id @default(autoincrement()) //
+  user_id     String   @db.VarChar(36) //
+  product_id  String   @db.VarChar(36) //
+  user        Users    @relation(fields: [user_id], references: [user_id])
+  product     Products @relation(fields: [product_id], references: [product_id])
+}
+
+// D20: Shop_Settings - การตั้งค่าทั่วไปของหน้าเว็บไซต์
+model Shop_Settings {
+  setting_id   Int    @id @default(autoincrement()) //
+  config_key   String @unique @db.VarChar(100) //
+  config_value String @db.Text //
+}
