@@ -95,9 +95,9 @@ exports.forgotPassword = async (req, res) => {
 
         const resetUrl = `http://localhost:5173/reset-password/${user.user_id}/${token}`;
         const mailOptions = {
-            from: `"SOOO GUICHAI" <${process.env.EMAIL_USER}>`,
+            from: `"ร้านคุกกี้" <${process.env.EMAIL_USER}>`,
             to: user.email,
-            subject: 'รีเซ็ตรหัสผ่าน - SOOO GUICHAI',
+            subject: 'รีเซ็ตรหัสผ่าน - ร้านคุกกี้',
             html: `
                 <div style="font-family: 'Kanit', sans-serif; padding: 20px; color: #1B2559; border: 1px solid #E2E8F0; border-radius: 15px;">
                     <h2 style="color: #C5A059;">แจ้งลืมรหัสผ่าน</h2>

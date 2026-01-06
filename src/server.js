@@ -6,7 +6,7 @@ const passport = require('passport');
 require('./config/passport'); 
 
 const app = express();
-// Vercel จะเป็นคนกำหนด Port ให้เองในระบบ Serverless แต่เราใส่ไว้สำหรับรัน Local
+// Vercel จะเป็นคนกำหนด Port ให้เองในระบบ Serverless แต่ใส่ไว้สำหรับรัน Local
 const port = process.env.PORT || 5000;
 
 // ==========================================

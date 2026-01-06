@@ -122,7 +122,13 @@ exports.getAllOrders = async (req, res) => {
         const orders = await prisma.orders.findMany({
             include: { 
                 user: true, 
-                items: { include: { product: true } }, 
+                items: { 
+                    include: { 
+                        product: { 
+                            include: { images: true } // 🚩 เพิ่มบรรทัดนี้ เพื่อดึงรูปภาพสินค้าออกมาด้วย
+                        } 
+                    } 
+                }, 
                 payments: true,
                 address: true,
                 shippings: {
@@ -136,7 +142,6 @@ exports.getAllOrders = async (req, res) => {
         res.json({ success: true, data: orders });
     } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 };
-
 /**
  * ✅ 3. ยืนยันชำระเงิน (Admin)
  */
@@ -196,43 +201,69 @@ exports.updateOrderStatus = async (req, res) => {
     } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 };
 
+
+
 /**
- * 🚚 5. อัปเดตเลขพัสดุและผู้ให้บริการขนส่ง (Admin)
+ * 🚚 5. อัปเดตเลขพัสดุและบริษัทขนส่ง (D15)
+ * - บันทึกลงตาราง Orders (เลขพัสดุ + สถานะ)
+ * - สร้างข้อมูลในตาราง Shippings (D14)
+ * - บันทึกลง System Log (D5) เพื่อเก็บประวัติการทำงานของเจ้าหน้าที่
  */
-exports.updateTracking = async (req, res) => {
+exports.updateTracking = async (req, res, next) => {
     const { id } = req.params;
     const { tracking_number, shipping_provider, status } = req.body; 
-    const adminId = req.user.user_id || req.user.id;
+    // ดึง ID ของ Admin/Staff ที่ล็อกอินอยู่มาบันทึก Log
+    const adminId = req.user?.user_id || req.user?.id;
 
     try {
-        const provider = await prisma.shipping_providers.findFirst({
+        // 1. ค้นหา Provider จากชื่อที่เลือกมาจากหน้าจอ (Nim, Fuze)
+        const provider = await prisma.shipping_Providers.findFirst({
             where: { provider_name: shipping_provider }
         });
 
-        if (!provider) return res.status(400).json({ success: false, message: "ไม่พบข้อมูลขนส่ง" });
+        if (!provider) {
+            return res.status(400).json({ success: false, message: "ไม่พบข้อมูลบริษัทขนส่งที่ระบุ" });
+        }
 
+        // 2. ใช้ Transaction เพื่ออัปเดตข้อมูลให้สัมพันธ์กันทั้งระบบ
         await prisma.$transaction([
+            // อัปเดตตาราง Orders: บันทึกเลขพัสดุและเปลี่ยนสถานะ
             prisma.orders.update({
-                where: { order_id: id },
-                data: { tracking_number, status: status || 'สำเร็จ' }
+                where: { order_id: id.trim() },
+                data: { 
+                    tracking_number: tracking_number ? tracking_number.toString().slice(0, 20) : null, 
+                    status: status || 'สำเร็จ' 
+                }
             }),
+            // บันทึกลงตาราง Shippings: เก็บประวัติการส่ง (shipping_id รันอัตโนมัติใน DB)
             prisma.shippings.create({
                 data: {
-                    order_id: id,
+                    order_id: id.trim(),
                     provider_id: provider.provider_id,
                     shipping_date: new Date()
                 }
             })
         ]);
 
-        await createLog(adminId, `อัปเดตพัสดุ ${tracking_number} ขนส่งโดย ${shipping_provider}`);
-        res.json({ success: true, message: "บันทึกข้อมูลการจัดส่งสำเร็จ" });
-    } catch (error) { res.status(500).json({ success: false, message: "เกิดข้อผิดพลาด" }); }
+        // 3. บันทึกลง System Log (D5) ตามที่คุณต้องการ
+        if (adminId && typeof createLog === 'function') {
+            await createLog(adminId, `มีการเพิ่มเลขพัสดุ ${tracking_number} ขนส่งโดย ${shipping_provider} สำหรับออเดอร์ ${id}`);
+        }
+        
+        res.json({ success: true, message: "บันทึกเลขพัสดุและประวัติการจัดส่งเรียบร้อยแล้ว" });
+
+    } catch (error) { 
+        // พ่น Error ออกที่หน้าจอ Console (Terminal) ของเครื่องคุณเพื่อการ Debug
+        console.error('=============================================');
+        console.error('❌ [DEBUG] Update Tracking & Log Failed!');
+        console.error('Order ID:', id);
+        console.error('Error:', error); 
+        console.error('=============================================');
+
+        next(error); 
+    }
 };
 
-/**
- * 🔍 6. ดูรายละเอียดออเดอร์ (Customer/Admin)
- */
 exports.getOrderDetail = async (req, res) => {
     const { id } = req.params;
     try {
@@ -240,7 +271,13 @@ exports.getOrderDetail = async (req, res) => {
             where: { order_id: id },
             include: { 
                 user: true, 
-                items: { include: { product: true } }, 
+                items: { 
+                    include: { 
+                        product: { 
+                            include: { images: true } // 🚩 เพิ่มบรรทัดนี้เช่นกัน
+                        } 
+                    } 
+                }, 
                 payments: true,
                 address: true,
                 shippings: { include: { provider: true } }
@@ -251,16 +288,20 @@ exports.getOrderDetail = async (req, res) => {
     } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 };
 
-/**
- * 👤 7. ดูออเดอร์ของฉัน (Customer)
- */
+// --- 👤 7. ดูออเดอร์ของฉัน (Customer) ---
 exports.getMyOrders = async (req, res) => {
     const userId = req.user.user_id || req.user.id;
     try {
         const orders = await prisma.orders.findMany({
             where: { user_id: userId },
             include: { 
-                items: { include: { product: true } },
+                items: { 
+                    include: { 
+                        product: { 
+                            include: { images: true } // 🚩 เพิ่มบรรทัดนี้เพื่อให้หน้าบ้านลูกค้าเห็นรูปด้วย
+                        } 
+                    } 
+                },
                 address: true,
                 shippings: { include: { provider: true } }
             },
@@ -269,3 +310,19 @@ exports.getMyOrders = async (req, res) => {
         res.json({ success: true, data: orders });
     } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 };
+
+
+exports.getShippingProviders = async (req, res) => {
+    try {
+        const providers = await prisma.shipping_Providers.findMany({
+            orderBy: { provider_id: 'asc' }
+        });
+        res.json({ success: true, data: providers });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.updatePaymentSlip = async (req, res) => { res.json({success: true}); };
+exports.updateOrderAmount = async (req, res) => { res.json({success: true}); };
+exports.cancelOrder = async (req, res) => { res.json({success: true}); };

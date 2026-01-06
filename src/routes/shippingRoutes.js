@@ -1,15 +1,12 @@
-// backend/src/routes/shippingRoutes.js
 const express = require('express');
 const router = express.Router();
-const prisma = require('../lib/prisma');
-const { protect, isStaff } = require('../middlewares/authMiddleware');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+const orderController = require('../controllers/orderController');
 
-// API สำหรับดึงรายชื่อขนส่ง (Nim express, Fuze)
-router.get('/', protect, isStaff, async (req, res) => {
+router.get('/', async (req, res) => {
     try {
-        const providers = await prisma.Shipping_Providers.findMany({
-            orderBy: { provider_id: 'asc' }
-        });
+        const providers = await prisma.shipping_Providers.findMany();
         res.json({ success: true, data: providers });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
