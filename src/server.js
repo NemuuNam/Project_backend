@@ -2,9 +2,11 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const passport = require('passport'); 
+require('./config/passport'); 
 
 const app = express();
-// Vercel จะเป็นคนกำหนด Port ให้เองในระบบ Serverless แต่ใส่ไว้สำหรับรัน Local
+// Vercel จะเป็นคนกำหนด Port ให้เองในระบบ Serverless แต่เราใส่ไว้สำหรับรัน Local
 const port = process.env.PORT || 5000;
 
 // ==========================================
@@ -29,26 +31,29 @@ const shippingRoutes = require('./routes/shippingRoutes');
 
 // ✅ ตั้งค่า CORS ให้เจาะจงเฉพาะ Frontend ของคุณ
 const allowedOrigins = [
-  'http://localhost:5173', // สำหรับทดสอบในเครื่อง (Vite)
-  'https://project-frontend-pi-sandy.vercel.app', // URL ของ Frontend บน Vercel
+  'http://localhost:5173', // สำหรับทดสอบในเครื่อง
+  'https://project-frontend-pi-sandy.vercel.app', //URL ของ Frontend ที่โฮสต์บน Vercel
 ];
 
 app.use(cors({
   origin: function (origin, callback) {
-    // อนุญาตหากไม่มี origin (เช่นเรียกจาก Postman) หรืออยู่ใน Whitelist
-    if (!origin || allowedOrigins.includes(origin)) {
+    // อนุญาตหากไม่มี origin (เช่นเรียกจากเครื่องมือทดสอบ) หรืออยู่ใน Whitelist
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      // ส่ง false แทนการส่ง Error เพื่อไม่ให้เซิร์ฟเวอร์ค้าง (แก้ปัญหา OPT 500)
-      callback(null, false);
+      callback(new Error('ไม่ได้อนุญาตให้เข้าถึงโดยนโยบาย CORS'));
     }
   },
-  credentials: true, // จำเป็นสำหรับการส่ง Token/Cookie ในโปรเจกต์ของคุณ
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  credentials: true // อนุญาตให้ส่ง Cookie หรือ Header พิเศษได้
 }));
+
 app.use(express.json());
 
+// ❌ ตัดออก: app.use('/uploads', express.static('uploads')); 
+// เพราะเราย้ายไปใช้ Supabase Storage แล้ว จึงไม่จำเป็นต้องเปิด Route สำหรับไฟล์ในเครื่อง
+
+// 3. เริ่มการทำงานของ Passport
+app.use(passport.initialize());
 
 // ==========================================
 // 4. จัดกลุ่ม API Routes
