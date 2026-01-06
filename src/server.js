@@ -2,8 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const passport = require('passport'); 
-require('./config/passport'); 
 
 const app = express();
 // Vercel จะเป็นคนกำหนด Port ให้เองในระบบ Serverless แต่ใส่ไว้สำหรับรัน Local
@@ -31,20 +29,23 @@ const shippingRoutes = require('./routes/shippingRoutes');
 
 // ✅ ตั้งค่า CORS ให้เจาะจงเฉพาะ Frontend ของคุณ
 const allowedOrigins = [
-  'http://localhost:5173', // สำหรับทดสอบในเครื่อง
-  'https://project-frontend-pi-sandy.vercel.app', //URL ของ Frontend ที่โฮสต์บน Vercel
+  'http://localhost:5173',
+  'https://project-frontend-pi-sandy.vercel.app',
 ];
 
 app.use(cors({
   origin: function (origin, callback) {
-    // อนุญาตหากไม่มี origin (เช่นเรียกจากเครื่องมือทดสอบ) หรืออยู่ใน Whitelist
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    // หากเป็น Localhost หรือ URL ที่กำหนดใน Whitelist หรือไม่มี origin (เช่นการเรียกแบบ Server-to-Server)
+    if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('ไม่ได้อนุญาตให้เข้าถึงโดยนโยบาย CORS'));
+      // แทนที่จะส่ง Error ให้ส่ง false เพื่อให้ CORS middleware จัดการตามมาตรฐาน
+      callback(null, false);
     }
   },
-  credentials: true // อนุญาตให้ส่ง Cookie หรือ Header พิเศษได้
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
 
 app.use(express.json());
@@ -52,8 +53,7 @@ app.use(express.json());
 // ❌ ตัดออก: app.use('/uploads', express.static('uploads')); 
 // เพราะเราย้ายไปใช้ Supabase Storage แล้ว จึงไม่จำเป็นต้องเปิด Route สำหรับไฟล์ในเครื่อง
 
-// 3. เริ่มการทำงานของ Passport
-app.use(passport.initialize());
+
 
 // ==========================================
 // 4. จัดกลุ่ม API Routes
