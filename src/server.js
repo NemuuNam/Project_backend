@@ -29,30 +29,25 @@ const shippingRoutes = require('./routes/shippingRoutes');
 
 // ✅ ตั้งค่า CORS ให้เจาะจงเฉพาะ Frontend ของคุณ
 const allowedOrigins = [
-  'http://localhost:5173',
-  'https://project-frontend-pi-sandy.vercel.app',
+  'http://localhost:5173', // สำหรับทดสอบในเครื่อง (Vite)
+  'https://project-frontend-pi-sandy.vercel.app', // URL ของ Frontend บน Vercel
 ];
 
 app.use(cors({
   origin: function (origin, callback) {
-    // หากเป็น Localhost หรือ URL ที่กำหนดใน Whitelist หรือไม่มี origin (เช่นการเรียกแบบ Server-to-Server)
+    // อนุญาตหากไม่มี origin (เช่นเรียกจาก Postman) หรืออยู่ใน Whitelist
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      // แทนที่จะส่ง Error ให้ส่ง false เพื่อให้ CORS middleware จัดการตามมาตรฐาน
+      // ส่ง false แทนการส่ง Error เพื่อไม่ให้เซิร์ฟเวอร์ค้าง (แก้ปัญหา OPT 500)
       callback(null, false);
     }
   },
+  credentials: true, // จำเป็นสำหรับการส่ง Token/Cookie ในโปรเจกต์ของคุณ
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
-
 app.use(express.json());
-
-// ❌ ตัดออก: app.use('/uploads', express.static('uploads')); 
-// เพราะเราย้ายไปใช้ Supabase Storage แล้ว จึงไม่จำเป็นต้องเปิด Route สำหรับไฟล์ในเครื่อง
-
 
 
 // ==========================================
