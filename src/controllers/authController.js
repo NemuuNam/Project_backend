@@ -93,7 +93,7 @@ exports.forgotPassword = async (req, res) => {
 
         await transporter.verify();
 
-        const resetUrl = `http://localhost:5173/reset-password/${user.user_id}/${token}`;
+        const resetUrl = `https://project-frontend-pi-sandy.vercel.app/reset-password/${user.user_id}/${token}`;
         const mailOptions = {
             from: `"ร้านคุกกี้" <${process.env.EMAIL_USER}>`,
             to: user.email,
