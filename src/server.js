@@ -37,16 +37,16 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
-    // อนุญาตหากไม่มี origin (เช่นเรียกจากเครื่องมือทดสอบ) หรืออยู่ใน Whitelist
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('ไม่ได้อนุญาตให้เข้าถึงโดยนโยบาย CORS'));
+      callback(null, false); // ✅ เปลี่ยนจาก callback(new Error(...)) เป็นแบบนี้
     }
   },
-  credentials: true // อนุญาตให้ส่ง Cookie หรือ Header พิเศษได้
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
-
 app.use(express.json());
 
 // ❌ ตัดออก: app.use('/uploads', express.static('uploads')); 
