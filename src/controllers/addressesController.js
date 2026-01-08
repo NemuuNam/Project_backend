@@ -15,24 +15,41 @@ exports.getUserAddresses = async (req, res) => {
 };
 
 // 2. บันทึกที่อยู่ใหม่ (Create)
+// src/controllers/addressesController.js
+
 exports.createAddress = async (req, res) => {
-    const userId = req.user.user_id || req.user.id;
     const { recipient_name, phone_number, address_detail } = req.body;
 
     try {
+        // 1. ✨ ตรวจสอบ user_id จาก req.user (ที่ได้มาจาก authMiddleware)
+        // ลองเช็คทั้งสองแบบ เพราะบางครั้งเราตั้งชื่อฟิลด์ใน Token ต่างกัน
+        const userId = req.user?.user_id || req.user?.id;
+
+        // 2. 🛡️ ป้องกันกรณี userId ไม่มีค่า (เช่น Token ผิดพลาด หรือลืมใส่ Middleware)
+        if (!userId) {
+            return res.status(401).json({ 
+                success: false, 
+                message: "ไม่พบข้อมูลผู้ใช้งาน กรุณาเข้าสู่ระบบใหม่" 
+            });
+        }
+
+        const cleanedPhone = phone_number.replace(/\D/g, '');
+
+        // 3. ✨ ส่งค่าเข้าไปบันทึก
         const newAddress = await prisma.addresses.create({
             data: {
-                user_id: userId,
-                recipient_name, 
-                phone_number,   
-                address_detail  
+                recipient_name: recipient_name.trim(),
+                phone_number: cleanedPhone,
+                address_detail: address_detail.trim(),
+                user_id: userId // มั่นใจว่าตรงนี้ไม่เป็น undefined แล้ว
             }
         });
 
         res.status(201).json({ success: true, data: newAddress });
+
     } catch (error) {
         console.error("Create Address Error:", error);
-        res.status(500).json({ success: false, message: "ไม่สามารถเพิ่มที่อยู่ได้" });
+        res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดในการบันทึกที่อยู่" });
     }
 };
 
