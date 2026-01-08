@@ -9,7 +9,16 @@ exports.getProfile = async (req, res) => {
         const userId = req.user.user_id || req.user.id;
         const user = await prisma.users.findUnique({
             where: { user_id: userId },
-            include: { role: true }
+            include: { 
+                role: true,
+                // ✅ ดึงข้อมูลที่อยู่ทั้งหมดของผู้ใช้
+                addresses: true, 
+                // ✅ ดึงประวัติการสั่งซื้อ (เรียงจากล่าสุด)
+                orders: {
+                    orderBy: { created_at: 'desc' },
+                    take: 5 // ดึงมาแค่ 5 รายการล่าสุดเพื่อความรวดเร็ว
+                }
+            }
         });
 
         if (!user) return res.status(404).json({ success: false, message: "ไม่พบผู้ใช้" });
@@ -21,13 +30,16 @@ exports.getProfile = async (req, res) => {
                 email: user.email,
                 first_name: user.first_name,
                 last_name: user.last_name,
+                phone: user.phone,
                 role_name: user.role?.role_name || "ผู้ใช้งาน",
-                role_level: user.role?.role_level || 4 
+                role_level: user.role?.role_level || 4,
+                addresses: user.addresses, // สำหรับแสดงรายการที่อยู่
+                recent_orders: user.orders  // สำหรับแสดงประวัติการสั่งซื้อล่าสุด
             }
         });
     } catch (error) {
         console.error("Get Profile Error:", error);
-        res.status(500).json({ success: false, message: error.message });
+        res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดในการโหลดข้อมูลโปรไฟล์" });
     }
 };
 
@@ -110,5 +122,37 @@ exports.deleteUser = async (req, res) => {
         res.status(200).json({ success: true });
     } catch (error) {
         res.status(400).json({ success: false, message: "ไม่สามารถลบผู้ใช้ได้" });
+    }
+};
+
+
+/**
+ * 3. อัปเดตข้อมูลโปรไฟล์ (แก้ไขโดยเจ้าของบัญชี)
+ */
+exports.updateProfile = async (req, res) => {
+    const userId = req.user.user_id || req.user.id;
+    const { first_name, last_name, phone } = req.body;
+
+    try {
+        const updatedUser = await prisma.users.update({
+            where: { user_id: userId },
+            data: { 
+                first_name, 
+                last_name, 
+                phone 
+            } 
+        });
+        res.json({ 
+            success: true, 
+            message: "อัปเดตข้อมูลส่วนตัวเรียบร้อยแล้ว",
+            data: {
+                first_name: updatedUser.first_name,
+                last_name: updatedUser.last_name,
+                phone: updatedUser.phone
+            }
+        });
+    } catch (error) {
+        console.error("Update Profile Error:", error);
+        res.status(500).json({ success: false, message: "ไม่สามารถอัปเดตโปรไฟล์ได้" });
     }
 };

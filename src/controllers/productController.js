@@ -11,9 +11,17 @@ const supabase = require('../lib/supabase');
 exports.getAllProducts = async (req, res) => {
     try {
         const products = await prisma.products.findMany({
-            include: { 
-                images: { where: { is_main: true } }, 
-                category: true 
+            select: { 
+                product_id: true,
+                product_name: true,
+                description: true, 
+                unit_price: true,
+                stock_quantity: true,
+                category_id: true,
+                category: true, 
+                images: {
+                    where: { is_main: true }
+                }
             },
             orderBy: { product_name: 'asc' }
         });
@@ -23,9 +31,10 @@ exports.getAllProducts = async (req, res) => {
     }
 };
 
-/** 1.2 เพิ่มสินค้าใหม่ */
+/** 1.2 เพิ่มสินค้าใหม่ (แก้ไขแล้ว) */
 exports.createProduct = async (req, res) => {
-    const { product_name, unit_price, stock_quantity, category_id } = req.body;
+    // ✅ เพิ่ม description เข้ามาจาก req.body
+    const { product_name, unit_price, stock_quantity, category_id, description } = req.body;
     const file = req.file;
     const adminId = req.user.user_id || req.user.id;
 
@@ -35,13 +44,14 @@ exports.createProduct = async (req, res) => {
             const product = await tx.products.create({
                 data: {
                     product_name,
+                    description, // ✅ เพิ่มบรรทัดนี้เพื่อให้ Prisma บันทึกคำอธิบาย
                     unit_price: parseInt(unit_price),
                     stock_quantity: parseInt(stock_quantity),
                     category_id: parseInt(category_id)
                 }
             });
 
-            // 2. จัดการอัปโหลดรูปภาพไปยัง Supabase Storage
+            // 2. จัดการอัปโหลดรูปภาพไปยัง Supabase Storage (คงเดิม)
             if (file) {
                 const fileName = `prod_${product.product_id}_${Date.now()}.${file.originalname.split('.').pop()}`;
                 const { error: uploadError } = await supabase.storage
@@ -59,7 +69,7 @@ exports.createProduct = async (req, res) => {
                 });
             }
 
-            // 3. บันทึกลง Inventory Log (D9) เพื่อแสดงในหน้าประวัติสต็อก
+            // 3. บันทึกลง Inventory Log (คงเดิม)
             await tx.inventory_Logs.create({
                 data: {
                     product_id: product.product_id,
@@ -78,10 +88,11 @@ exports.createProduct = async (req, res) => {
     }
 };
 
-/** 1.3 แก้ไขสินค้า (บันทึกลง D9 เท่านั้น) */
+/** 1.3 แก้ไขสินค้า (แก้ไขแล้ว) */
 exports.updateProduct = async (req, res) => {
     const { id } = req.params;
-    const { product_name, unit_price, stock_quantity, category_id } = req.body;
+    // ✅ เพิ่ม description เข้ามาจาก req.body
+    const { product_name, unit_price, stock_quantity, category_id, description } = req.body;
     const file = req.file;
     const adminId = req.user.user_id || req.user.id;
 
@@ -92,16 +103,17 @@ exports.updateProduct = async (req, res) => {
         
         if (!oldProduct) return res.status(404).json({ message: "ไม่พบสินค้า" });
 
-        // คำนวณความเปลี่ยนแปลงเพื่อระบุเหตุผลใน Log
+        // คำนวณความเปลี่ยนแปลงเพื่อระบุเหตุผลใน Log (คงเดิม)
         let changeReasons = [];
         if (product_name !== oldProduct.product_name) changeReasons.push(`เปลี่ยนชื่อ`);
+        if (description !== oldProduct.description) changeReasons.push(`แก้ไขคำอธิบาย`); // ✅ เพิ่ม Log การแก้คำอธิบาย
         if (parseInt(unit_price) !== oldProduct.unit_price) changeReasons.push(`ปรับราคา`);
         if (file) changeReasons.push(`อัปเดตรูปภาพ`);
         const diffQty = parseInt(stock_quantity) - oldProduct.stock_quantity;
         if (diffQty !== 0) changeReasons.push(diffQty > 0 ? `เพิ่มสต็อก (+${diffQty})` : `ลดสต็อก (${diffQty})`);
 
         const result = await prisma.$transaction(async (tx) => {
-            // จัดการเปลี่ยนรูปภาพ (ถ้ามีการอัปโหลดใหม่)
+            // จัดการเปลี่ยนรูปภาพ (คงเดิม)
             if (file) {
                 const existingImage = await tx.product_Images.findFirst({ where: { product_id: id, is_main: true } });
                 if (existingImage && existingImage.image_url) {
@@ -126,7 +138,7 @@ exports.updateProduct = async (req, res) => {
 
             const actionReason = changeReasons.join(", ") || "แก้ไขข้อมูลทั่วไป";
 
-            // บันทึกเฉพาะความเคลื่อนไหวสินค้าลง Inventory Log (D9)
+            // บันทึกเฉพาะความเคลื่อนไหวสินค้าลง Inventory Log (คงเดิม)
             await tx.inventory_Logs.create({
                 data: {
                     product_id: id,
@@ -141,6 +153,7 @@ exports.updateProduct = async (req, res) => {
                 where: { product_id: id },
                 data: {
                     product_name,
+                    description, // ✅ เพิ่มบรรทัดนี้เพื่อให้ค่าใหม่ถูกอัปเดตลง Database
                     unit_price: parseInt(unit_price),
                     stock_quantity: parseInt(stock_quantity),
                     category_id: parseInt(category_id)
@@ -210,6 +223,52 @@ exports.syncCartItems = async (req, res) => {
     }
 };
 
+/** 🆕 1.6 ปรับปรุงสต็อกสินค้าพร้อมบันทึกประวัติ (กิจกรรมข้อ 9) */
+exports.updateStock = async (req, res) => {
+    const { id } = req.params;
+    const { new_stock, reason } = req.body;
+    const adminId = req.user.user_id || req.user.id;
+
+    try {
+        // 1. ตรวจสอบว่ามีสินค้าจริงไหม และดึงจำนวนสต็อกเดิมมาคำนวณส่วนต่าง
+        const currentProduct = await prisma.products.findUnique({
+            where: { product_id: id }
+        });
+
+        if (!currentProduct) {
+            return res.status(404).json({ success: false, message: "ไม่พบสินค้า" });
+        }
+
+        const diffQty = parseInt(new_stock) - currentProduct.stock_quantity;
+
+        // 2. ใช้ Transaction เพื่ออัปเดตสต็อกและบันทึก Log พร้อมกัน
+        const result = await prisma.$transaction(async (tx) => {
+            // อัปเดตจำนวนสินค้า
+            const updatedProduct = await tx.products.update({
+                where: { product_id: id },
+                data: { stock_quantity: parseInt(new_stock) }
+            });
+
+            // บันทึกความเคลื่อนไหวลงตาราง Inventory Log (D9)
+            await tx.inventory_Logs.create({
+                data: {
+                    product_id: id,
+                    user_id: adminId,
+                    change_qty: diffQty, // บันทึกว่าบวกหรือลบไปเท่าไหร่
+                    reason: reason || "ปรับปรุงสต็อกด้วยตนเอง"
+                }
+            });
+
+            return updatedProduct;
+        });
+
+        res.json({ success: true, data: result });
+    } catch (error) {
+        console.error("Update Stock Error:", error);
+        res.status(500).json({ success: false, message: "ไม่สามารถอัปเดตสต็อกได้: " + error.message });
+    }
+};
+
 // ==========================================
 // 2. การจัดการหมวดหมู่ (Categories)
 // ==========================================
@@ -234,3 +293,76 @@ exports.deleteCategory = async (req, res) => {
         res.json({ success: true });
     } catch (error) { res.status(400).json({ success: false, message: "หมวดหมู่ถูกใช้งานอยู่" }); }
 };
+
+
+/**
+ * [GET] ดึงข้อมูลรีวิวของสินค้า (Public)
+ * กิจกรรม: แสดงรีวิวสินค้า (ขอบเขตข้อ 2)
+ */
+exports.getProductReviews = async (req, res) => {
+    try {
+        // 1. ตรวจสอบชื่อตัวแปรให้ตรงกับใน Route (ปกติคือ /:productId)
+        const { productId } = req.params;
+
+        // Log ดูว่าค่าที่รับมาคืออะไร (ช่วยในการ Debug)
+        console.log("Requesting reviews for Product ID:", productId);
+
+        if (!productId || productId === 'undefined') {
+            return res.status(400).json({
+                success: false,
+                message: "ไม่พบรหัสสินค้าที่ต้องการดึงรีวิว"
+            });
+        }
+
+        const reviews = await prisma.product_Reviews.findMany({
+            where: {
+                // 2. ปรับให้ตรงกับ Schema: 
+                // หากใน DB เป็น String ให้ใช้: product_id: productId
+                // หากใน DB เป็น Int ให้ใช้: product_id: Number(productId)
+                // จาก Error Log ของคุณระบุว่าต้องการ String ครับ
+                product_id: productId 
+            },
+            include: {
+                user: {
+                    select: {
+                        first_name: true,
+                        last_name: true
+                    }
+                }
+            },
+            orderBy: {
+                created_at: 'desc'
+            }
+        });
+
+        res.status(200).json({
+            success: true,
+            data: reviews
+        });
+    } catch (error) {
+        console.error("Get Reviews Error:", error);
+        res.status(500).json({
+            success: false,
+            message: "เกิดข้อผิดพลาดภายในระบบ"
+        });
+    }
+};
+
+exports.trackProductView = async (req, res) => {
+    try {
+        const { id } = req.params; // รับมาเป็น String ตาม Schema ของน้อง
+
+        await prisma.product_Views.create({
+            data: {
+                product_id: id,
+                viewed_at: new Date()
+            }
+        });
+
+        res.status(200).json({ success: true, message: "View recorded" });
+    } catch (error) {
+        console.error("Tracking Error:", error);
+        res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+};
+

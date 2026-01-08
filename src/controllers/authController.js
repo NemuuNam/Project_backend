@@ -5,7 +5,6 @@ const bcrypt = require('bcrypt');
 const { createLog } = require('./systemLogController');
 
 // ✅ 1. ฟังก์ชันเข้าสู่ระบบ (Login)
-// ❌ ยกเลิกการบันทึก Log เพื่อประหยัดพื้นที่ DB ตามคำขอ
 exports.login = async (req, res) => {
     const { email, password } = req.body;
     try {
@@ -24,13 +23,12 @@ exports.login = async (req, res) => {
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(401).json({ success: false, message: "อีเมลหรือรหัสผ่านไม่ถูกต้อง" });
 
+        // สร้าง Token (ใช้ id เพื่อให้ตรงกับ Middleware)
         const token = jwt.sign(
             { id: user.user_id, email: user.email, role_level: user.role.role_level }, 
             process.env.JWT_SECRET || 'your_secret_key', 
             { expiresIn: '1d' }
         );
-
-        // --- ลบ createLog ส่วนการเข้าสู่ระบบออกแล้ว ---
 
         res.json({
             success: true,
@@ -47,8 +45,42 @@ exports.login = async (req, res) => {
     }
 };
 
-// ✅ 2. ฟังก์ชันสมัครสมาชิก (Register) 
-// คง Log ไว้เพราะเป็นการสร้างบัญชีใหม่ (เกิดขึ้นไม่บ่อย)
+// ✅ 2. ฟังก์ชันดึงข้อมูลโปรไฟล์ (Get Profile) - เพิ่มเข้าไปเพื่อแก้ Error 500
+exports.getProfile = async (req, res) => {
+    try {
+        // req.user.id ได้มาจาก Auth Middleware ที่คุณใช้ถอดรหัส JWT
+        const userId = req.user.id; 
+
+        const user = await prisma.users.findUnique({
+            where: { user_id: userId },
+            include: { 
+                role: true, // เพื่อเอา role_name และ role_level ไปโชว์ที่หน้าบ้าน
+                addresses: true // ดึงที่อยู่ไปแสดงในหน้า Profile
+            }
+        });
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: "ไม่พบข้อมูลผู้ใช้งาน" });
+        }
+
+        // นำรหัสผ่านออกก่อนส่งกลับเพื่อความปลอดภัย
+        const { password, ...userData } = user;
+
+        res.status(200).json({
+            success: true,
+            data: {
+                ...userData,
+                role_name: user.role.role_name,
+                role_level: user.role.role_level
+            }
+        });
+    } catch (error) {
+        console.error("Get Profile Error:", error);
+        res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+};
+
+// ✅ 3. ฟังก์ชันสมัครสมาชิก (Register) 
 exports.register = async (req, res) => {
     const { first_name, last_name, email, password } = req.body;
     try {
@@ -58,6 +90,7 @@ exports.register = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = await prisma.users.create({
+            // กำหนด role_id: 4 เป็น Customer โดยเริ่มต้น
             data: { first_name, last_name, email: normalizedEmail, password: hashedPassword, role_id: 4 }
         });
 
@@ -69,8 +102,7 @@ exports.register = async (req, res) => {
     }
 };
 
-// ✅ 3. ลืมรหัสผ่าน (Forgot Password) 
-// ใช้ JWT ร่วมกับ Password เดิมเป็น Secret เพื่อให้ลิงก์ใช้ได้ครั้งเดียว
+// ✅ 4. ลืมรหัสผ่าน (Forgot Password) 
 exports.forgotPassword = async (req, res) => {
     const { email } = req.body;
     try {
@@ -91,8 +123,8 @@ exports.forgotPassword = async (req, res) => {
             }
         });
 
-        await transporter.verify();
-
+        //http://localhost:5173/
+        //https://project-frontend-pi-sandy.vercel.app/reset-password/
         const resetUrl = `https://project-frontend-pi-sandy.vercel.app/reset-password/${user.user_id}/${token}`;
         const mailOptions = {
             from: `"ร้านคุกกี้" <${process.env.EMAIL_USER}>`,
@@ -121,8 +153,7 @@ exports.forgotPassword = async (req, res) => {
     }
 };
 
-// ✅ 4. เปลี่ยนรหัสผ่านใหม่ (Reset Password)
-// รับ userId เป็น String (UUID) ตาม Schema
+// ✅ 5. เปลี่ยนรหัสผ่านใหม่ (Reset Password)
 exports.resetPassword = async (req, res) => {
     const { token } = req.params;
     const { userId, newPassword } = req.body;
@@ -132,11 +163,7 @@ exports.resetPassword = async (req, res) => {
             return res.status(400).json({ success: false, message: "ข้อมูลไม่ครบถ้วน" });
         }
 
-        // ค้นหาด้วย UUID (String) โดยไม่ต้องใช้ Number()
-        const user = await prisma.users.findUnique({ 
-            where: { user_id: userId } 
-        });
-
+        const user = await prisma.users.findUnique({ where: { user_id: userId } });
         if (!user) return res.status(400).json({ success: false, message: "ไม่พบผู้ใช้งาน" });
 
         const secret = (process.env.JWT_SECRET || 'your_secret_key') + user.password;
@@ -153,11 +180,34 @@ exports.resetPassword = async (req, res) => {
         });
 
         await createLog(user.user_id, `เปลี่ยนรหัสผ่านสำเร็จผ่านลิงก์อีเมล`);
-
         res.json({ success: true, message: "เปลี่ยนรหัสผ่านใหม่สำเร็จแล้ว" });
-
     } catch (error) {
         console.error("Reset Password Error:", error);
         res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์" });
+    }
+};
+
+// ✅ 6. เปลี่ยนรหัสผ่านจากหน้า Profile (Change Password)
+exports.changePassword = async (req, res) => {
+    const userId = req.user.id;
+    const { oldPassword, newPassword } = req.body;
+
+    try {
+        const user = await prisma.users.findUnique({ where: { user_id: userId } });
+        if (!user) return res.status(404).json({ message: "ไม่พบผู้ใช้" });
+
+        const isMatch = await bcrypt.compare(oldPassword, user.password);
+        if (!isMatch) return res.status(400).json({ success: false, message: "รหัสผ่านเดิมไม่ถูกต้อง" });
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await prisma.users.update({
+            where: { user_id: userId },
+            data: { password: hashedPassword }
+        });
+
+        await createLog(userId, `เปลี่ยนรหัสผ่านใหม่สำเร็จ`);
+        res.json({ success: true, message: "เปลี่ยนรหัสผ่านสำเร็จ" });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดในการเปลี่ยนรหัสผ่าน" });
     }
 };

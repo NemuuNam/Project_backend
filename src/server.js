@@ -2,8 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const passport = require('passport'); 
-require('./config/passport'); 
 
 const app = express();
 // Vercel จะเป็นคนกำหนด Port ให้เองในระบบ Serverless แต่เราใส่ไว้สำหรับรัน Local
@@ -24,6 +22,8 @@ const inventoryLogRoutes = require('./routes/inventoryLogRoutes');
 const shopSettingRoutes = require('./routes/shopSettingRoutes');
 const addressRoutes = require('./routes/addressRoutes');
 const shippingRoutes = require('./routes/shippingRoutes');
+const wishlistRoutes = require('./routes/wishlistRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
 
 // ==========================================
 // 2. Middlewares & CORS Configuration
@@ -49,12 +49,6 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// ❌ ตัดออก: app.use('/uploads', express.static('uploads')); 
-// เพราะเราย้ายไปใช้ Supabase Storage แล้ว จึงไม่จำเป็นต้องเปิด Route สำหรับไฟล์ในเครื่อง
-
-// 3. เริ่มการทำงานของ Passport
-app.use(passport.initialize());
-
 // ==========================================
 // 4. จัดกลุ่ม API Routes
 // ==========================================
@@ -63,6 +57,8 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/addresses', addressRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/wishlist', wishlistRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 app.use('/api/admin/users', userRoutes);
 app.use('/api/admin/orders', orderRoutes);

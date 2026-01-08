@@ -1,36 +1,64 @@
 const express = require('express');
 const router = express.Router();
 const shopController = require('../controllers/shopSettingController');
-const { protect, isAdminManager } = require('../middlewares/authMiddleware'); // ใช้ isAdminManager ให้เลเวล 1,2 แก้ได้
+const { protect, authorize } = require('../middlewares/authMiddleware'); 
 const multer = require('multer');
 
-// ตั้งค่า Multer สำหรับรับไฟล์รูปภาพ
-const upload = multer({ storage: multer.memoryStorage() });
+// ตั้งค่า Multer ให้เก็บไฟล์ในหน่วยความจำก่อนส่งไป Supabase
+const upload = multer({ 
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 5 * 1024 * 1024, // จำกัดไฟล์ละไม่เกิน 5MB
+    }
+});
 
 /**
  * Path: /api/admin/shop-settings
  */
 
-// --- ส่วนจัดการหน้าแรก (Hero Section) ---
-// [GET] ดึงข้อมูลมาโชว์ที่หน้า Home
+// --- 1. ส่วนจัดการหน้าแรก (Hero & Story Section) ---
+
+// [GET] ดึงข้อมูลมาโชว์ที่หน้า Home (สาธารณะ)
 router.get('/home', shopController.getHomeSettings);
 
-// [PUT] แก้ไขข้อความและอัปโหลดรูป (นี่คือจุดที่ 404 หากไม่มีบรรทัดนี้)
-router.put('/home', protect, isAdminManager, upload.single('image'), shopController.updateHomeSettings);
+// [PUT] แก้ไขข้อความและอัปโหลดรูปภาพหลายจุด
+// ✅ เปลี่ยนจาก .single('image') เป็น .fields() เพื่อรับรูปแยกตามฟิลด์ที่กำหนด
+router.put(
+    '/home', 
+    protect, 
+    authorize('MANAGE_PRODUCTS'), 
+    upload.fields([
+        { name: 'hero_image_url', maxCount: 10 }, // รูปหลักของร้าน
+        { name: 'story_image_1', maxCount: 1 },  // รูปประกอบเรื่องราว 1
+        { name: 'story_image_2', maxCount: 1 }   // รูปประกอบเรื่องราว 2
+    ]), 
+    shopController.updateHomeSettings
+);
 
-// --- ส่วนจัดการร้านค้าทั่วไป ---
-router.put('/update-social', protect, isAdminManager, shopController.updateSocialSettings);
+// --- 2. ส่วนจัดการร้านค้าทั่วไป (Social & Settings) ---
+
+// แก้ไขโซเชียลมีเดีย (Facebook, IG, Line)
+router.put('/update-social', protect, authorize('MANAGE_PRODUCTS'), shopController.updateSocialSettings);
+
+// [GET] ดึงข้อมูลสาธารณะ (ชื่อร้าน, เบอร์โทร สำหรับ Header/Footer)
 router.get('/public', shopController.getPublicSettings);
-router.get('/', shopController.getSettings);
-router.put('/', protect, isAdminManager, shopController.updateSettings);
 
-// ส่วนขนส่งและธนาคาร
+// [GET] ดึงการตั้งค่าทั้งหมด (รวมถึงค่าขนส่งที่ตั้งไว้)
+router.get('/', protect, authorize('MANAGE_PRODUCTS'), shopController.getSettings);
+
+// [PUT] อัปเดตการตั้งค่าทั่วไป (เช่น ค่าธรรมเนียมการจัดส่ง)
+router.put('/', protect, authorize('MANAGE_PRODUCTS'), shopController.updateSettings);
+
+// --- 3. ส่วนขนส่งและธนาคาร (Logistics & Finance) ---
+
+// จัดการผู้ให้บริการขนส่ง (ใช้สิทธิ์อัปเดตสถานะออเดอร์)
 router.get('/providers', shopController.getShippingProviders);
-router.post('/providers', protect, isAdminManager, shopController.createShippingProvider);
-router.delete('/providers/:id', protect, isAdminManager, shopController.deleteShippingProvider);
+router.post('/providers', protect, authorize('UPDATE_ORDER_STATUS'), shopController.createShippingProvider);
+router.delete('/providers/:id', protect, authorize('UPDATE_ORDER_STATUS'), shopController.deleteShippingProvider);
 
+// จัดการช่องทางการชำระเงิน (ระบบอัปโหลดสลิปที่ต้องการความปลอดภัย)
 router.get('/payments', shopController.getPaymentMethods);
-router.post('/payments', protect, isAdminManager, shopController.createPaymentMethod);
-router.delete('/payments/:id', protect, isAdminManager, shopController.deletePaymentMethod);
+router.post('/payments', protect, authorize('VERIFY_PAYMENT'), shopController.createPaymentMethod);
+router.delete('/payments/:id', protect, authorize('VERIFY_PAYMENT'), shopController.deletePaymentMethod);
 
 module.exports = router;

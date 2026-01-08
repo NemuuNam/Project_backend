@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const prisma = require('../lib/prisma'); // เพิ่มการดึง prisma มาใช้งาน
 
 /**
  * 1. ระบบตรวจสอบการเข้าสู่ระบบ (Token Validation)
@@ -6,85 +7,77 @@ const jwt = require('jsonwebtoken');
 const protect = (req, res, next) => {
     let token = req.headers.authorization;
 
-    // DEBUG: ตรวจสอบ Header ที่ส่งมาจาก Frontend
-    console.log('--- [DEBUG: protect] ---');
-    console.log('Header Authorization:', token);
-
     if (token && token.startsWith('Bearer')) {
         try {
             token = token.split(' ')[1];
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
             
-            // เก็บข้อมูล User ไว้ใน req
+            // เก็บข้อมูล User ไว้ใน req (ตรวจสอบว่าใช้ user_id หรือ id ให้ตรงกัน)
             req.user = decoded; 
-            
-            // DEBUG: ดูว่าใน Token มีข้อมูลอะไรบ้าง (ต้องมี role_level)
-            console.log('Decoded Token Payload:', decoded);
-            
             next();
         } catch (error) {
-            console.error('JWT Error:', error.message);
             res.status(401).json({ message: "Token ไม่ถูกต้องหรือหมดอายุ" });
         }
     } else {
-        console.warn('No token provided');
         res.status(401).json({ message: "กรุณาเข้าสู่ระบบก่อนใช้งาน" });
     }
 };
 
 /**
- * 2. สำหรับพนักงาน (ID: 1, 2, 3)
+ * 2. ระบบตรวจสอบสิทธิ์รายกิจกรรม (Permission-Based)
  */
-const isStaff = (req, res, next) => {
-    console.log('--- [DEBUG: isStaff Check] ---');
-    console.log('User Role ID:', req.user?.role_level);
+const authorize = (requiredPermission) => {
+    return async (req, res, next) => {
+        try {
+            const userId = req.user.user_id || req.user.id;
 
-    if (req.user && [1, 2, 3].includes(req.user.role_level)) {
-        console.log('Access Granted: Staff Level');
-        next();
-    } else {
-        console.warn('Access Denied: Not a staff member');
-        res.status(403).json({ 
-            message: "สงวนสิทธิ์เฉพาะพนักงานร้านเท่านั้น",
-            debug_role: req.user ? req.user.role_level : 'No User'
-        });
-    }
+            const user = await prisma.users.findUnique({
+                where: { user_id: userId },
+                include: {
+                    role: {
+                        include: {
+                            // ✅ แก้จาก role_permissions เป็น permissions ให้ตรงกับ Schema
+                            permissions: { 
+                                include: { permission: true }
+                            }
+                        }
+                    }
+                }
+            });
+
+            if (!user || !user.role) return res.status(403).json({ message: "ไม่มีสิทธิ์เข้าถึง" });
+
+            // ✅ แก้จาก user.role.role_permissions เป็น user.role.permissions
+            const userPermissions = user.role.permissions.map(rp => rp.permission.permission_name);
+
+            if (!userPermissions.includes(requiredPermission)) {
+                return res.status(403).json({ 
+                    message: `คุณไม่มีสิทธิ์ทำรายการนี้ (ต้องการ: ${requiredPermission})` 
+                });
+            }
+
+            next();
+        } catch (error) {
+            console.error("Authorization Middleware Error:", error); // เพิ่ม Log เพื่อดู Error จริงใน Terminal
+            res.status(500).json({ message: "เกิดข้อผิดพลาดในการตรวจสอบสิทธิ์" });
+        }
+    };
 };
 
 /**
- * 3. สำหรับผู้ดูแลระบบ (ID: 1, 2)
+ * 3. ตัวช่วยเช็กกลุ่ม Staff (สั้นๆ สำหรับหน้าบ้าน)
  */
-const isAdminManager = (req, res, next) => {
-    console.log('--- [DEBUG: isAdminManager Check] ---');
-    console.log('User Role ID:', req.user?.role_level);
-
-    if (req.user && [1, 2].includes(req.user.role_level)) {
-        console.log('Access Granted: Owner/Admin Level');
+const isStaff = async (req, res, next) => {
+    // เปลี่ยนจากเช็กเลข 1,2,3 เป็นการเช็กว่า "ไม่ใช่ Customer" แทน เพื่อความยืดหยุ่น
+    if (req.user && req.user.role_level < 4) {
         next();
     } else {
-        console.error('Access Denied: Insufficient Role ID');
-        res.status(403).json({ 
-            message: "เฉพาะผู้บริหารหรือแอดมินเท่านั้น",
-            current_role_level: req.user ? req.user.role_level : 'undefined' 
-        });
+        res.status(403).json({ message: "สงวนสิทธิ์เฉพาะพนักงาน" });
     }
 };
 
-/**
- * 4. สำหรับผู้บริหาร (ID: 1)
- */
-const admin = (req, res, next) => {
-    if (req.user && req.user.role_level === 1) {
-        next();
-    } else {
-        res.status(403).json({ message: "เฉพาะผู้บริหารเท่านั้น" });
-    }
-};
-
-// *** ต้อง Export ออกไปแบบ Object ให้ครบทุกตัว ***
 module.exports = { 
     protect, 
-    isStaff, 
-    isAdminManager, 
-    admin 
+    authorize, // ✅ เพิ่มตัวนี้เพื่อใช้เช็กสิทธิ์ตามรูปตารางขอบเขตโครงการ
+    isStaff 
 };

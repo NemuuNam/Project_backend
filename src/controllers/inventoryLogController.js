@@ -7,18 +7,17 @@ exports.getInventoryLogs = async (req, res) => {
     try {
         const logCount = await prisma.inventory_Logs.count();
 
-        // ระบบลบอัตโนมัติเพื่อรักษาประสิทธิภาพ (ไม่ต้องบันทึก System Log เพราะเป็นกระบวนการอัตโนมัติ)
         if (logCount > 100) {
             const thresholdLogs = await prisma.inventory_Logs.findMany({
-                orderBy: { inv_log_id: 'desc' },
+                orderBy: { created_at: 'desc' }, // เปลี่ยนเป็นเรียงตามเวลา
                 skip: 99,
                 take: 1
             });
 
             if (thresholdLogs.length > 0) {
-                const thresholdId = thresholdLogs[0].inv_log_id;
+                const thresholdDate = thresholdLogs[0].created_at;
                 await prisma.inventory_Logs.deleteMany({
-                    where: { inv_log_id: { lt: thresholdId } }
+                    where: { created_at: { lt: thresholdDate } } // ลบรายการที่เก่ากว่าวันที่กำหนด
                 });
             }
         }
@@ -28,7 +27,7 @@ exports.getInventoryLogs = async (req, res) => {
                 product: { select: { product_name: true } },
                 user: { select: { first_name: true, last_name: true } }
             },
-            orderBy: { inv_log_id: 'desc' },
+            orderBy: { created_at: 'desc' }, 
             take: 100 
         });
 

@@ -2,42 +2,98 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const productController = require('../controllers/productController');
-const { protect, isStaff, isAdminManager } = require('../middlewares/authMiddleware');
+
+
+const { protect, authorize } = require('../middlewares/authMiddleware');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
 // ==========================================
-// 1. หมวดหมู่สินค้า (Categories) - ตาราง D6
+// 1. หมวดหมู่สินค้า (Categories)
 // ==========================================
 
-/** ดึงข้อมูลหมวดหมู่ (Public: ลูกค้าทุกคนเข้าถึงได้เพื่อใช้กรองสินค้า) */
+/** ดึงข้อมูลหมวดหมู่ (Public: ตามข้อ 1 ในตารางขอบเขต) */
 router.get('/categories', productController.getAllCategories);
 
-/** เพิ่มหมวดหมู่ใหม่ (Staff/Admin เท่านั้น) */
-router.post('/categories', protect, isStaff, productController.createCategory);
+/** เพิ่มหมวดหมู่ใหม่ (สิทธิ์ MANAGE_PRODUCTS) */
+router.post(
+    '/categories',
+    protect,
+    authorize('MANAGE_PRODUCTS'),
+    productController.createCategory
+);
 
-/** ลบหมวดหมู่ (เฉพาะ Admin/Manager เท่านั้น) */
-router.delete('/categories/:id', protect, isAdminManager, productController.deleteCategory);
+/** ลบหมวดหมู่ (สิทธิ์ MANAGE_PRODUCTS) */
+router.delete(
+    '/categories/:id',
+    protect,
+    authorize('MANAGE_PRODUCTS'),
+    productController.deleteCategory
+);
 
 
 // ==========================================
-// 2. รายการสินค้า (Products) - ตาราง D7, D8
+// 2. รายการสินค้า (Products) - ตารางข้อ 7
 // ==========================================
 
-/** ดึงข้อมูลสินค้าทั้งหมด (Public: สำหรับหน้า Home และหน้า Products) */
+/** ดึงข้อมูลสินค้าทั้งหมด (Public: ใครก็เข้าชมได้ตามข้อ 1 ในตาราง) */
 router.get('/', productController.getAllProducts);
 
-/**Sync ข้อมูลสินค้าในตะกร้า (Public: ใช้ดึงราคาและรูปล่าสุดจาก DB) */
-// ต้องเพิ่มฟังก์ชัน syncCartItems ใน productController.js ด้วย
+/** Sync ข้อมูลสินค้าในตะกร้า (Public) */
 router.post('/sync-cart', productController.syncCartItems);
 
-/** เพิ่มสินค้าใหม่ (Staff ทำได้) */
-router.post('/', protect, isStaff, upload.single('image'), productController.createProduct);
+/** * เพิ่มสินค้าใหม่ (สิทธิ์ MANAGE_PRODUCTS) 
+ * สอดคล้องกับกิจกรรมข้อ 7: จัดการสินค้า
+ */
+router.post(
+    '/',
+    protect,
+    authorize('MANAGE_PRODUCTS'),
+    upload.single('image'),
+    productController.createProduct
+);
 
-/** แก้ไขข้อมูลสินค้า (Staff ทำได้) */
-router.patch('/:id', protect, isStaff, upload.single('image'), productController.updateProduct);
+/** ดึงรีวิวสินค้า (Public) - สอดคล้องกับขอบเขตข้อ 2 */
+router.get(
+    '/reviews/public/all', 
+    productController.getProductReviews
+);
 
-/** ลบสินค้า (เฉพาะ Admin/Manager เท่านั้น) */
-router.delete('/:id', protect, isAdminManager, productController.deleteProduct);
+
+router.post(
+    '/:id/view', 
+    productController.trackProductView
+);
+
+/** * ปรับปรุงสต็อกสินค้า (สิทธิ์ MANAGE_PRODUCTS) 
+ * เพิ่มเข้าไปเพื่อให้รองรับ URL /:id/stock
+ */
+router.patch(
+    '/:id/stock', 
+    protect, 
+    authorize('MANAGE_PRODUCTS'), 
+    productController.updateStock 
+);
+
+/** * แก้ไขข้อมูลสินค้า (สิทธิ์ MANAGE_PRODUCTS) 
+ * สอดคล้องกับกิจกรรมข้อ 7: จัดการสินค้า
+ */
+router.patch(
+    '/:id',
+    protect,
+    authorize('MANAGE_PRODUCTS'),
+    upload.single('image'),
+    productController.updateProduct
+);
+
+/** * ลบสินค้า (สิทธิ์ MANAGE_PRODUCTS) 
+ * สอดคล้องกับกิจกรรมข้อ 7: จัดการสินค้า
+ */
+router.delete(
+    '/:id',
+    protect,
+    authorize('MANAGE_PRODUCTS'),
+    productController.deleteProduct
+);
 
 module.exports = router;

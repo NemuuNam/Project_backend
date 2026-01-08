@@ -1,13 +1,22 @@
 const express = require('express');
 const router = express.Router();
 
-// นำเข้า Controller ที่เราเพิ่งแก้ไข (ต้องมั่นใจว่าชื่อไฟล์ตรงกัน)
+// นำเข้า Controller
 const reportController = require('../controllers/reportController');
 
-// นำเข้า Middleware ตรวจสอบสิทธิ์
-const { protect, isAdminManager } = require('../middlewares/authMiddleware');
+// ✅ นำเข้า authorize มาใช้งานแทน isAdminManager
+const { protect, authorize } = require('../middlewares/authMiddleware');
 
-// กำหนด Route ไปที่ /sales
-router.get('/sales', protect, isAdminManager, reportController.getSalesReport);
+/**
+ * [GET] /api/admin/reports/sales
+ * กิจกรรม: ดูรายงานยอดขาย (รายการที่ 10 ในตารางขอบเขต)
+ * สิทธิ์: ผู้ดูแลระบบ และ เจ้าของ 
+ */
+router.get(
+    '/sales', 
+    protect, 
+    authorize('VIEW_SALES_REPORTS'), // ✅ ใช้สิทธิ์ตรงตามข้อ 10 ในตาราง
+    reportController.getSalesReport
+);
 
 module.exports = router;

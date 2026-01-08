@@ -1,45 +1,82 @@
 const prisma = require('../lib/prisma');
 
-// ดึงรายการที่อยู่ทั้งหมดเฉพาะของ User ที่ล็อกอินอยู่
+// 1. ดึงรายการที่อยู่ทั้งหมดเฉพาะของ User ที่ล็อกอินอยู่
 exports.getUserAddresses = async (req, res) => {
-    // เช็กข้อมูล User จาก Middleware protect
-    console.log("🔍 [Backend] req.user data:", req.user); 
-
     try {
         const userId = req.user.user_id || req.user.id;
         const addresses = await prisma.addresses.findMany({
-            where: { user_id: userId }, // ดึงเฉพาะของ user_id นี้เท่านั้น
+            where: { user_id: userId },
             orderBy: { address_id: 'desc' }
         });
-        
-        console.log(`✅ [Backend] Found ${addresses.length} addresses for User: ${userId}`);
         res.json({ success: true, data: addresses });
     } catch (error) {
-        console.error("❌ [Backend] Database Error:", error.message);
         res.status(500).json({ success: false, message: error.message });
     }
 };
 
-// บันทึกที่อยู่ใหม่ลงตาราง Addresses
+// 2. บันทึกที่อยู่ใหม่ (Create)
 exports.createAddress = async (req, res) => {
     const userId = req.user.user_id || req.user.id;
     const { recipient_name, phone_number, address_detail } = req.body;
-    
-    console.log("📝 [Backend] Attempting to save address for user:", userId);
 
     try {
         const newAddress = await prisma.addresses.create({
             data: {
                 user_id: userId,
-                recipient_name,
-                phone_number,
-                address_detail
+                recipient_name, 
+                phone_number,   
+                address_detail  
             }
         });
-        console.log("✅ [Backend] New address saved ID:", newAddress.address_id);
+
         res.status(201).json({ success: true, data: newAddress });
     } catch (error) {
-        console.error("❌ [Backend] Create Address Error:", error.message);
-        res.status(500).json({ success: false, message: error.message });
+        console.error("Create Address Error:", error);
+        res.status(500).json({ success: false, message: "ไม่สามารถเพิ่มที่อยู่ได้" });
+    }
+};
+
+// 3. แก้ไขข้อมูลที่อยู่ (Update)
+exports.updateAddress = async (req, res) => {
+    const { id } = req.params;
+    const userId = req.user.user_id || req.user.id;
+    const { recipient_name, phone_number, address_detail } = req.body;
+
+    try {
+        const updatedAddress = await prisma.addresses.update({
+            where: { 
+                address_id: parseInt(id),
+                user_id: userId 
+            },
+            data: { 
+                recipient_name, 
+                phone_number, 
+                address_detail 
+            }
+        });
+
+        res.json({ success: true, data: updatedAddress });
+    } catch (error) {
+        console.error("Update Address Error:", error);
+        res.status(400).json({ success: false, message: "แก้ไขที่อยู่ล้มเหลว" });
+    }
+};
+
+// 4. ลบข้อมูลที่อยู่ (Delete)
+exports.deleteAddress = async (req, res) => {
+    const { id } = req.params;
+    const userId = req.user.user_id || req.user.id;
+
+    try {
+        await prisma.addresses.delete({
+            where: { 
+                address_id: parseInt(id),
+                user_id: userId 
+            }
+        });
+
+        res.json({ success: true, message: "ลบที่อยู่สำเร็จ" });
+    } catch (error) {
+        res.status(400).json({ success: false, message: "ไม่สามารถลบที่อยู่ได้" });
     }
 };
