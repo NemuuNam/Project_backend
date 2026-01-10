@@ -1,0 +1,235 @@
+//// ------------------------------------------------------
+//// THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+//// ------------------------------------------------------
+
+Table Roles {
+  role_id Int [pk, increment]
+  role_name String [unique, not null]
+  role_level Int [unique, not null]
+  permissions Role_Permissions [not null]
+  users Users [not null]
+}
+
+Table Users {
+  user_id String [pk]
+  email String [unique, not null]
+  password String [not null]
+  first_name String [not null]
+  last_name String [not null]
+  phone String
+  role_id Int [not null]
+  addresses Addresses [not null]
+  inv_logs Inventory_Logs [not null]
+  orders Orders [not null]
+  logs System_Logs [not null]
+  role Roles [not null]
+  wishlists Wishlists [not null]
+  reviews Product_Reviews [not null]
+}
+
+Table Permissions {
+  permission_id Int [pk, increment]
+  permission_name String [unique, not null]
+  description String
+  roles Role_Permissions [not null]
+}
+
+Table Role_Permissions {
+  role_permissions_id Int [pk, increment]
+  role_id Int [not null]
+  permission_id Int [not null]
+  permission Permissions [not null]
+  role Roles [not null]
+}
+
+Table System_Logs {
+  log_id Int [pk, increment]
+  user_id String [not null]
+  action_details String [not null]
+  created_at DateTime [default: `now()`, not null]
+  user Users [not null]
+}
+
+Table Categories {
+  category_id Int [pk, increment]
+  category_name String [not null]
+  products Products [not null]
+}
+
+Table Products {
+  product_id String [pk]
+  product_name String [not null]
+  description String
+  unit_price Int [not null]
+  stock_quantity Int [not null]
+  category_id Int [not null]
+  inv_logs Inventory_Logs [not null]
+  orderItems Order_Items [not null]
+  images Product_Images [not null]
+  reviews Product_Reviews [not null]
+  views Product_Views [not null]
+  category Categories [not null]
+  wishlists Wishlists [not null]
+}
+
+Table Product_Images {
+  image_id Int [pk, increment]
+  product_id String [not null]
+  image_url String [not null]
+  is_main Boolean [not null, default: false]
+  product Products [not null]
+}
+
+Table Inventory_Logs {
+  inv_log_id Int [pk, increment]
+  product_id String [not null]
+  user_id String [not null]
+  change_qty Int [not null]
+  reason String [not null]
+  created_at DateTime [default: `now()`, not null]
+  product Products [not null]
+  user Users [not null]
+}
+
+Table Product_Views {
+  view_id Int [pk, increment]
+  product_id String [not null]
+  viewed_at DateTime [default: `now()`, not null]
+  product Products [not null]
+}
+
+Table Addresses {
+  address_id Int [pk, increment]
+  user_id String [not null]
+  recipient_name String [not null]
+  phone_number String [not null]
+  address_detail String [not null]
+  user Users [not null]
+  orders Orders [not null]
+}
+
+Table Orders {
+  order_id String [pk]
+  user_id String [not null]
+  total_amount Int [not null]
+  shipping_cost Int [not null, default: 0]
+  status String [not null]
+  rejection_reason String
+  tracking_number String
+  address_id Int
+  created_at DateTime [default: `now()`, not null]
+  items Order_Items [not null]
+  address Addresses
+  user Users [not null]
+  payments Payments [not null]
+  shippings Shippings [not null]
+}
+
+Table Order_Items {
+  item_id Int [pk, increment]
+  order_id String [not null]
+  product_id String [not null]
+  quantity Int [not null]
+  price_at_order Int [not null]
+  order Orders [not null]
+  product Products [not null]
+}
+
+Table Shippings {
+  shipping_id Int [pk, increment]
+  order_id String [not null]
+  shipping_date DateTime [not null]
+  provider_id Int [not null]
+  order Orders [not null]
+  provider Shipping_Providers [not null]
+}
+
+Table Shipping_Providers {
+  provider_id Int [pk, increment]
+  provider_name String [not null]
+  shippings Shippings [not null]
+}
+
+Table Payment_Methods {
+  method_id Int [pk, increment]
+  bank_name String [not null]
+  account_number String [not null]
+  account_name String
+}
+
+Table Payments {
+  payment_id String [pk]
+  order_id String [not null]
+  amount_paid Int [not null]
+  slip_url String [not null]
+  is_verified Boolean [not null, default: false]
+  payment_date DateTime [default: `now()`, not null]
+  order Orders [not null]
+}
+
+Table Product_Reviews {
+  review_id Int [pk, increment]
+  product_id String [not null]
+  user_id String [not null]
+  rating_score Int [not null]
+  comment String
+  created_at DateTime [default: `now()`, not null]
+  product Products [not null]
+  user Users [not null]
+}
+
+Table Wishlists {
+  wishlist_id Int [pk, increment]
+  user_id String [not null]
+  product_id String [not null]
+  product Products [not null]
+  user Users [not null]
+}
+
+Table Shop_Settings {
+  setting_id Int [pk, increment]
+  config_key String [unique, not null]
+  config_value String [not null]
+}
+
+Ref: Users.role_id > Roles.role_id
+
+Ref: Role_Permissions.permission_id > Permissions.permission_id
+
+Ref: Role_Permissions.role_id > Roles.role_id
+
+Ref: System_Logs.user_id > Users.user_id
+
+Ref: Products.category_id > Categories.category_id
+
+Ref: Product_Images.product_id > Products.product_id
+
+Ref: Inventory_Logs.product_id > Products.product_id
+
+Ref: Inventory_Logs.user_id > Users.user_id
+
+Ref: Product_Views.product_id > Products.product_id
+
+Ref: Addresses.user_id > Users.user_id
+
+Ref: Orders.address_id > Addresses.address_id
+
+Ref: Orders.user_id > Users.user_id
+
+Ref: Order_Items.order_id > Orders.order_id
+
+Ref: Order_Items.product_id > Products.product_id
+
+Ref: Shippings.order_id > Orders.order_id
+
+Ref: Shippings.provider_id > Shipping_Providers.provider_id
+
+Ref: Payments.order_id > Orders.order_id
+
+Ref: Product_Reviews.product_id > Products.product_id
+
+Ref: Product_Reviews.user_id > Users.user_id
+
+Ref: Wishlists.product_id > Products.product_id
+
+Ref: Wishlists.user_id > Users.user_id

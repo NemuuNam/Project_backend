@@ -196,3 +196,7 @@ model Shop_Settings {
   config_key   String @unique @db.VarChar(100)
   config_value String
 }
+
+generator dbml {
+  provider = "prisma-dbml-generator"
+}
