@@ -175,29 +175,40 @@ exports.updateOrderStatus = async (req, res) => {
  */
 exports.updateTracking = async (req, res, next) => {
     const { id } = req.params;
-    const { tracking_number, provider_id, status } = req.body; // รับ provider_id แทน
+    // 1. ตรวจสอบ req.body: ถ้าหน้าบ้านส่งชื่อ provider_name มาด้วยให้ดึงมา 
+    // หรือถ้าส่งแค่ provider_id ก็ดึงแค่ provider_id
+    const { tracking_number, provider_id, status, provider_name } = req.body; 
     const adminId = req.user?.user_id || req.user?.id;
 
     try {
         await prisma.$transaction([
             prisma.orders.update({
                 where: { order_id: id },
+                // บันทึกเลขพัสดุลงใน table orders
                 data: { tracking_number: tracking_number, status: status || 'กำลังจัดส่ง' }
             }),
             prisma.shippings.create({
                 data: { 
                     order_id: id, 
-                    provider_id: parseInt(provider_id), // ใช้ ID ที่ส่งมาได้เลย
+                    provider_id: parseInt(provider_id),
                     shipping_date: new Date() 
                 }
             })
         ]);
 
-        if (adminId) await createLog(adminId, `เพิ่มเลขพัสดุ ${tracking_number} ขนส่งโดย ${shipping_provider} ออเดอร์ ${id}`);
-        res.json({ success: true, message: "บันทึกข้อมูลเรียบร้อย" });
-    } catch (error) { next(error); }
-};
+        // 2. แก้ไขจุดนี้: เปลี่ยนจาก shipping_provider เป็น provider_name หรือ provider_id
+        // เพื่อไม่ให้เกิด ReferenceError
+        if (adminId) {
+            const logDetail = `เพิ่มเลขพัสดุ ${tracking_number} ขนส่งโดย ${provider_name || 'ID: ' + provider_id} ออเดอร์ ${id}`;
+            await createLog(adminId, logDetail);
+        }
 
+        res.json({ success: true, message: "บันทึกข้อมูลเรียบร้อย" });
+    } catch (error) { 
+        console.error("Update Tracking Error:", error);
+        next(error); 
+    }
+};
 /**
  * 📸 6. ลูกค้าส่งสลิปใหม่
  */
