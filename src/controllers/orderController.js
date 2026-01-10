@@ -1,5 +1,5 @@
 const prisma = require('../lib/prisma');
-const { createLog } = require('./systemLogController'); 
+const { createLog } = require('./systemLogController');
 const supabase = require('../lib/supabase');
 
 /**
@@ -17,7 +17,7 @@ const generateOrderId = async (tx) => {
     });
 
     const sequence = String(countToday + 1).padStart(3, '0');
-    return `ORD-${dateStr}-${sequence}`; 
+    return `ORD-${dateStr}-${sequence}`;
 };
 
 /**
@@ -26,8 +26,8 @@ const generateOrderId = async (tx) => {
 exports.createOrder = async (req, res) => {
     try {
         const { address_id, items } = JSON.parse(req.body.order_data);
-        const slipFile = req.file; 
-        const userId = req.user.user_id || req.user.id; 
+        const slipFile = req.file;
+        const userId = req.user.user_id || req.user.id;
 
         if (!slipFile) return res.status(400).json({ success: false, message: "กรุณาแนบสลิปโอนเงิน" });
 
@@ -38,7 +38,7 @@ exports.createOrder = async (req, res) => {
             .upload(fileName, slipFile.buffer, { contentType: slipFile.mimetype });
 
         if (uploadError) throw uploadError;
-        const { data: { publicUrl } } = supabase.storage.from('payment-slips').getPublicUrl(fileName);  
+        const { data: { publicUrl } } = supabase.storage.from('payment-slips').getPublicUrl(fileName);
 
         // เริ่ม Transaction
         const result = await prisma.$transaction(async (tx) => {
@@ -49,13 +49,13 @@ exports.createOrder = async (req, res) => {
 
             // คำนวณยอดเงินสินค้า
             const subtotal = items.reduce((acc, i) => acc + (i.price * i.quantity), 0);
-            
+
             // ✅ แก้ไข: คำนวณจำนวนชิ้นทั้งหมด
             const totalQuantity = items.reduce((acc, i) => acc + i.quantity, 0);
-            
+
             // ✅ แก้ไข: เช็คเงื่อนไขส่งฟรีตามจำนวนชิ้น (Pieces)
             const shippingCost = totalQuantity >= config.min_free_shipping ? 0 : config.delivery_fee;
-            
+
             const totalAmount = subtotal + shippingCost;
             const newOrderId = await generateOrderId(tx);
 
@@ -108,9 +108,9 @@ exports.createOrder = async (req, res) => {
 exports.getAllOrders = async (req, res) => {
     try {
         const orders = await prisma.orders.findMany({
-            include: { 
-                user: true, 
-                items: { include: { product: { include: { images: true } } } }, 
+            include: {
+                user: true,
+                items: { include: { product: { include: { images: true } } } },
                 payments: true,
                 address: true,
                 shippings: { include: { provider: true }, orderBy: { shipping_id: 'desc' }, take: 1 }
@@ -177,7 +177,7 @@ exports.updateTracking = async (req, res, next) => {
     const { id } = req.params;
     // 1. ตรวจสอบ req.body: ถ้าหน้าบ้านส่งชื่อ provider_name มาด้วยให้ดึงมา 
     // หรือถ้าส่งแค่ provider_id ก็ดึงแค่ provider_id
-    const { tracking_number, provider_id, status, provider_name } = req.body; 
+    const { tracking_number, provider_id, status, provider_name } = req.body;
     const adminId = req.user?.user_id || req.user?.id;
 
     try {
@@ -188,10 +188,10 @@ exports.updateTracking = async (req, res, next) => {
                 data: { tracking_number: tracking_number, status: status || 'กำลังจัดส่ง' }
             }),
             prisma.shippings.create({
-                data: { 
-                    order_id: id, 
+                data: {
+                    order_id: id,
                     provider_id: parseInt(provider_id),
-                    shipping_date: new Date() 
+                    shipping_date: new Date()
                 }
             })
         ]);
@@ -204,22 +204,22 @@ exports.updateTracking = async (req, res, next) => {
         }
 
         res.json({ success: true, message: "บันทึกข้อมูลเรียบร้อย" });
-    } catch (error) { 
+    } catch (error) {
         console.error("Update Tracking Error:", error);
-        next(error); 
+        next(error);
     }
 };
 /**
  * 📸 6. ลูกค้าส่งสลิปใหม่
  */
 exports.updatePaymentSlip = async (req, res) => {
-    const { id } = req.params; 
+    const { id } = req.params;
     const slipFile = req.file;
     const userId = req.user?.user_id || req.user?.id;
 
     try {
         const order = await prisma.orders.findUnique({
-            where: { order_id: id }, 
+            where: { order_id: id },
             include: { payments: true }
         });
 
@@ -299,16 +299,16 @@ exports.cancelOrder = async (req, res) => {
  * 📝 8. ปฏิเสธสลิป (Admin)
  */
 exports.rejectPaymentSlip = async (req, res) => {
-    const { id } = req.params; 
-    const { reason } = req.body; 
+    const { id } = req.params;
+    const { reason } = req.body;
     const adminId = req.user?.user_id || req.user?.id;
 
     try {
         await prisma.orders.update({
-            where: { order_id: id }, 
-            data: { 
+            where: { order_id: id },
+            data: {
                 status: 'รอแก้ไขสลิป',
-                rejection_reason: reason 
+                rejection_reason: reason
             }
         });
 
@@ -327,9 +327,9 @@ exports.getOrderDetail = async (req, res) => {
     try {
         const order = await prisma.orders.findUnique({
             where: { order_id: id },
-            include: { 
-                user: true, 
-                items: { include: { product: { include: { images: true } } } }, 
+            include: {
+                user: true,
+                items: { include: { product: { include: { images: true } } } },
                 payments: true, address: true, shippings: { include: { provider: true } }
             }
         });
@@ -346,9 +346,9 @@ exports.getMyOrders = async (req, res) => {
     try {
         const orders = await prisma.orders.findMany({
             where: { user_id: userId },
-            include: { 
+            include: {
                 items: { include: { product: { include: { images: true } } } },
-                address: true, 
+                address: true,
                 shippings: { include: { provider: true } },
                 payments: true // ✅ เพิ่ม payments เพื่อให้เช็คสถานะการจ่ายเงินได้
             },
@@ -363,7 +363,13 @@ exports.getMyOrders = async (req, res) => {
  */
 exports.getShippingProviders = async (req, res) => {
     try {
-        const providers = await prisma.shipping_Providers.findMany({ orderBy: { provider_id: 'asc' } });
+        const providers = await prisma.shipping_Providers.findMany({
+            orderBy: { provider_id: 'asc' }
+        });
+
         res.json({ success: true, data: providers });
-    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+    } catch (error) {
+        console.error("GET Providers Error:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
 };
