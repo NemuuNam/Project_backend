@@ -117,7 +117,7 @@ model Orders {
   order_id        String        @id @db.VarChar(16)
   user_id         String        @db.VarChar(36)
   total_amount    Int
-  shipping_cost  Int            @default(0)
+  shipping_cost   Int           @default(0)
   status          String        @db.VarChar(20)
   rejection_reason String?      @db.VarChar(255)
   tracking_number String?       @db.VarChar(20)

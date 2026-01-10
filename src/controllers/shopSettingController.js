@@ -39,7 +39,7 @@ exports.getHomeSettings = async (req, res) => {
         const homeKeys = [
             'hero_title', 'hero_subtitle', 'hero_description', 
             'hero_image_url', 'promotion_text', 'delivery_fee', 
-            'min_free_shipping', 'story_image_1', 'story_image_2'
+            'min_free_shipping', 'story_image_1', 'story_image_2',
         ];
         
         const settings = await prisma.shop_Settings.findMany({
@@ -145,7 +145,7 @@ exports.getPublicSettings = async (req, res) => {
         const publicKeys = [
             'shop_name', 'address', 'phone', 'email', 
             'facebook_url', 'instagram_url', 'line_url', 'tiktok_url',
-            'hero_description', 'delivery_fee', 'min_free_shipping'
+            'hero_description', 'delivery_fee', 'min_free_shipping', 'about_history', 'about_mission'
         ];
         
         const settings = await prisma.shop_Settings.findMany({
@@ -183,16 +183,31 @@ exports.getSettings = async (req, res) => {
 
 exports.updateSettings = async (req, res) => {
     try {
-        const data = req.body; 
-        await prisma.$transaction(
-            Object.entries(data).map(([key, value]) => 
-                prisma.shop_Settings.upsert({
-                    where: { config_key: key },
-                    update: { config_value: String(value) },
-                    create: { config_key: key, config_value: String(value) }
-                })
-            )
-        );
+        const data = req.body; // ข้อมูลที่ได้รับจะเป็น [{config_key: '...', config_value: '...'}, ...]
+
+        // ตรวจสอบว่าถ้าส่งมาเป็น Array ให้วนลูปตาม Array
+        if (Array.isArray(data)) {
+            await prisma.$transaction(
+                data.map(item => 
+                    prisma.shop_Settings.upsert({
+                        where: { config_key: item.config_key },
+                        update: { config_value: String(item.config_value) },
+                        create: { config_key: item.config_key, config_value: String(item.config_value) }
+                    })
+                )
+            );
+        } else {
+            // กรณีส่งมาเป็น Object ปกติ (เผื่อไว้)
+            await prisma.$transaction(
+                Object.entries(data).map(([key, value]) => 
+                    prisma.shop_Settings.upsert({
+                        where: { config_key: key },
+                        update: { config_value: String(value) },
+                        create: { config_key: key, config_value: String(value) }
+                    })
+                )
+            );
+        }
         res.status(200).json({ success: true, message: "อัปเดตการตั้งค่าสำเร็จ" });
     } catch (error) { 
         res.status(500).json({ success: false, message: error.message }); 
