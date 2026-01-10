@@ -175,23 +175,21 @@ exports.updateOrderStatus = async (req, res) => {
  */
 exports.updateTracking = async (req, res, next) => {
     const { id } = req.params;
-    const { tracking_number, shipping_provider, status } = req.body; 
+    const { tracking_number, provider_id, status } = req.body; // รับ provider_id แทน
     const adminId = req.user?.user_id || req.user?.id;
 
     try {
-        const provider = await prisma.shipping_Providers.findFirst({
-            where: { provider_name: shipping_provider }
-        });
-
-        if (!provider) return res.status(400).json({ success: false, message: "ไม่พบข้อมูลบริษัทขนส่ง" });
-
         await prisma.$transaction([
             prisma.orders.update({
                 where: { order_id: id },
-                data: { tracking_number: tracking_number, status: status || 'สำเร็จ' }
+                data: { tracking_number: tracking_number, status: status || 'กำลังจัดส่ง' }
             }),
             prisma.shippings.create({
-                data: { order_id: id, provider_id: provider.provider_id, shipping_date: new Date() }
+                data: { 
+                    order_id: id, 
+                    provider_id: parseInt(provider_id), // ใช้ ID ที่ส่งมาได้เลย
+                    shipping_date: new Date() 
+                }
             })
         ]);
 

@@ -153,6 +153,7 @@ model Shipping_Providers {
   provider_id   Int         @id @default(autoincrement())
   provider_name String      @db.VarChar(100)
   shippings     Shippings[]
+  @@map("Shipping_Providers")
 }
 
 model Payment_Methods {
