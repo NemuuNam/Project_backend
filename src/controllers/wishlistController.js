@@ -23,7 +23,6 @@ exports.getWishlist = async (req, res) => {
 
         res.status(200).json({ success: true, data: wishlist });
     } catch (error) {
-        // สำคัญมาก: พิมพ์ Error ออกมาดูที่หน้าจอ Terminal ของ VS Code เพื่อดูสาเหตุที่แท้จริง
         console.error("Prisma Error Details:", error); 
         res.status(500).json({ 
             success: false, 
