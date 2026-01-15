@@ -51,9 +51,6 @@ app.use(cors({
 // 2. ถ้าจะดัก OPTIONS ให้ใช้ (.*)
 app.options('(.*)', cors());
 
-// สำคัญ: เพิ่มบรรทัดนี้เพื่อดัก Pre-flight request (OPTIONS)
-app.options('*', cors());
-
 app.use(express.json());
 
 // ==========================================
