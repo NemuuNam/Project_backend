@@ -37,20 +37,19 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
-    // เพิ่ม console.log เพื่อดูว่า origin ที่ส่งมาจริงๆ คืออะไร
-    console.log("Request Origin:", origin);
-    
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      // ลองเปลี่ยนจาก false เป็นการส่ง Error เพื่อดูใน Log ของ Vercel
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// 2. ถ้าจะดัก OPTIONS ให้ใช้ (.*)
+app.options('(.*)', cors());
 
 // สำคัญ: เพิ่มบรรทัดนี้เพื่อดัก Pre-flight request (OPTIONS)
 app.options('*', cors());
