@@ -48,9 +48,6 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// 2. ถ้าจะดัก OPTIONS ให้ใช้ (.*)
-app.options('(.*)', cors());
-
 app.use(express.json());
 
 // ==========================================
