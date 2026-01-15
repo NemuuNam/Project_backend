@@ -48,28 +48,21 @@ const allowedOrigins = [
 //   allowedHeaders: ['Content-Type', 'Authorization']
 // }));
 
-app.use(cors({
-  origin: function (origin, callback) {
-    // ระบุ URL ตรงๆ ไปเลยเพื่อทดสอบในรอบนี้
-    const allowed = [
-      'http://localhost:5173',
-      'https://project-frontend-pi-sandy.vercel.app'
-    ];
-    
-    // ถ้า origin ที่ส่งมาอยู่ใน list หรือไม่มี origin (เช่นการเรียกจาก postman) ให้ผ่าน
-    if (!origin || allowed.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      // แทนที่จะ callback(null, false) ให้ลอง callback(null, true) ไปก่อนเพื่อเช็คว่าหายไหม
-      // หรือส่ง Error ที่ชัดเจนออกไป
-      console.log("Blocked by CORS, Origin was:", origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
-}));
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  // ถ้าเป็น OPTIONS ให้ตอบกลับ 200 ทันที
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 app.use(express.json());
 
