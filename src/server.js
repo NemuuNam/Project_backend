@@ -48,7 +48,27 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+<<<<<<< HEAD
 // ==========================================
+=======
+//test cors debug
+// app.use((req, res, next) => {
+//   const origin = req.headers.origin;
+//   if (allowedOrigins.includes(origin)) {
+//     res.setHeader('Access-Control-Allow-Origin', origin);
+//   }
+//   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+//   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+//   res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+//   // ถ้าเป็น OPTIONS ให้ตอบกลับ 200 ทันที
+//   if (req.method === 'OPTIONS') {
+//     return res.sendStatus(200);
+//   }
+//   next();
+// });
+
+>>>>>>> 0e4061bbfbd75404b1f848493d03852f034b77ec
 app.use(express.json());
 
 // ==========================================
