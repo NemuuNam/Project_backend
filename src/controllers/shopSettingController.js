@@ -145,7 +145,7 @@ exports.getPublicSettings = async (req, res) => {
         const publicKeys = [
             'shop_name', 'address', 'phone', 'email', 
             'facebook_url', 'instagram_url', 'line_url', 'tiktok_url',
-            'hero_description', 'delivery_fee', 'min_free_shipping', 'about_history', 'about_mission'
+            'hero_description', 'delivery_fee', 'min_free_shipping', 'about_history', 'about_mission' , 'contact_opening_hours'
         ];
         
         const settings = await prisma.shop_Settings.findMany({
