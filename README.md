@@ -1,20 +1,21 @@
-# 🛒 E-commerce Platform (Frontend)
-**Senior Project: A Responsive Full-stack Online Store**
+# ⚙️ E-commerce Platform (Backend API)
+**Senior Project: Server-side Logic & Database Management**
 
-โปรเจกต์ส่วนหน้าบ้าน (Frontend) พัฒนาขึ้นเพื่อสร้างประสบการณ์การช้อปปิ้งออนไลน์ที่ลื่นไหลและตอบสนองได้ทุกอุปกรณ์ (Responsive Design)
+โปรเจกต์ส่วนหลังบ้าน (Backend) ที่ทำหน้าที่เป็นสมองของระบบ จัดการข้อมูลสินค้า สมาชิก และการประมวลผลคำสั่งซื้อผ่าน RESTful API
 
 ## 🚀 Tech Stack
-- **Library/Framework:** React.js & Vue.js (Multi-framework implementation)
-- **Styling:** CSS3 / Responsive Layouts
-- **Communication:** Axios for RESTful API requests
+- **Runtime:** Node.js
+- **Framework:** Express.js
+- **Database Management:** RESTful API Design & JSON Handling
+- **Testing Tools:** Postman (for API Testing)
 
 ## ✨ Key Features
-- **Dynamic Shopping Cart:** ระบบเพิ่ม/ลดสินค้าในตะกร้าและคำนวณราคาแบบ Real-time
-- **Product Display:** จัดหมวดหมู่และแสดงรายละเอียดสินค้าที่ดึงข้อมูลมาจาก Backend
-- **User Authentication:** หน้าจอ Login/Register และส่วนจัดการข้อมูลสมาชิก
-- **Responsive UI:** รองรับการใช้งานทั้งบนมือถือและคอมพิวเตอร์
+- **RESTful API:** ออกแบบ API สำหรับการจัดการข้อมูล (CRUD) สินค้าและผู้ใช้งาน
+- **Inventory System:** ระบบจัดการสต็อกสินค้าอัตโนมัติเมื่อมีการสั่งซื้อ
+- **Security & Validation:** ตรวจสอบความถูกต้องของข้อมูล (Data Validation) ก่อนบันทึกลงระบบ
+- **Error Handling:** จัดการข้อผิดพลาดของระบบอย่างเป็นระเบียบเพื่อให้ Frontend ทำงานได้อย่างเสถียร
 
 ## 🛠️ Getting Started
 1. Clone repository: `git clone [URL]`
 2. Install dependencies: `npm install`
-3. Run project: `npm run dev`
+3. Start server: `node app.js` หรือ `npm start`
